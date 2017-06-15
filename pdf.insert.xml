@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
 
-<menu name="TOPASforPDF">
+<menu name="TOPAS_for_PDF">
 
 	<item name="Run TOPAS" type="macro">
 			do_ta(v) {
