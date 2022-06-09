@@ -34,18 +34,21 @@ macro convolute_Qmax_Sinc(Qmax,Qmaxv)
 		min_X = Min(-Xo,-conv_max) ;
 		max_X = Max( Xo, conv_max) ;
 }
+macro convolute_Qmax_Sinc(Qmax) { convolute_Qmax_Sinc( ,Qmax) }
 
 macro convolute_alpha(alpha,alphav)
 {
 	'Convolution to account for a Q dependent broadening term in the S(Q) data
    #m_argu alpha
    If_Prm_Eqn_Rpt(alpha, alphav, min 0.00001 max 0.1, del 0.001)
-   local #m_unique fwhm = CeV(alpha,alphav) Xo;
+   local #m_unique fwhm = Max(CeV(alpha,alphav) Xo,0.00001);
+   local #m_unique conv_max = Ln(0.001) / fwhm;
    pdf_convolute = Gauss(0, fwhm);
-   	min_X = Min( Ln(0.001) / fwhm,0) ; 
-   	max_X = Max(-Ln(0.001) / fwhm,0) ;
+   	min_X = Min(-Xo,-conv_max) ;
+   	max_X = Max( Xo, conv_max) ;
    	convolute_X_recal = If(Xo,1,1) 1;
 }
+macro convolute_alpha(alpha) { convolute_alpha( ,alpha) }
 
 macro convolute_Lorch(Qmax,Qmaxv)
 {
@@ -58,6 +61,7 @@ macro convolute_Lorch(Qmax,Qmaxv)
    	max_X =-Ln(0.001) / fwhm;
    	convolute_X_recal = If(Xo,1,1) 1;
 }
+macro convolute_Lorch(Qmax) { convolute_Lorch( ,Qmax) }
 
 macro convolute_SoperLorch(d_zero,d_zerov,d_one,d_onev)
 {
@@ -74,11 +78,8 @@ macro convolute_SoperLorch(d_zero,d_zerov,d_one,d_onev)
    	max_X =-Ln(0.001) / fwhm;
    	convolute_X_recal = If(Xo,1,1) 1;
 }
-
-macro convolute_SoperLorch(d_zero,d_zerov)
-{
-	convolute_SoperLorch(d_zero,d_zerov,!d_one,0)
-}
+macro convolute_SoperLorch(d_zero,d_zerov) {	convolute_SoperLorch(d_zero,d_zerov, ,0) }
+macro convolute_SoperLorch(d_zero) {	convolute_SoperLorch( ,d_zero, ,0) }
 
 '===BEQ PEAK SHAPE FUNCTIONS===
 macro beq_rcut(rcut,beqlo,beqlov,beqhi,beqhiv)
@@ -110,6 +111,49 @@ macro beq_rcut_rlo_spherical(rcut,rcutv,beqcut,beqcutv,rlo,rlov,beqlo,beqlov,beq
 	If_Prm_Eqn_Rpt(beqhi, beqhiv, min 0.001 max 100, del = 0.05 Val;)
 	If_Prm_Eqn_Rpt(radius, radiusv, min 1 max 1000, del = 0.05 Val;)
 	beq = 
+		IF X > 0.1 THEN
+			IF X > (2 CeV(radius, radiusv)) + CeV(rlo, rlov) THEN
+				CeV(beqhi, beqhiv)
+			ELSE
+				IF X > CeV(rlo, rlov) THEN
+					CeV(beqlo, beqlov) + (CeV(beqhi, beqhiv)-CeV(beqlo, beqlov)) 
+						(1-(Pi (X-CeV(rlo, rlov))^2 ((0.25 ((X-CeV(rlo, rlov))/CeV(radius, radiusv))^3)-(3 (X-CeV(rlo, rlov))/CeV(radius, radiusv))+4)/(4 Pi (X-CeV(rlo, rlov))^2)))
+				ELSE
+					IF X > CeV(rcut, rcutv) THEN
+						CeV(beqlo, beqlov)
+					ELSE
+						CeV(beqcut, beqcutv)
+					ENDIF
+				ENDIF
+			ENDIF
+		ELSE
+			0.01
+		ENDIF;
+}
+macro beq_rcut_spherical(rcut,rcutv,beqcut,beqcutv,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+{
+	beq_rcut_rlo_spherical(rcut,rcutv,beqcut,beqcutv,!rlo,0,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+}
+macro beq_spherical(beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+{
+	beq_rcut_rlo_spherical(!rcut,0,!beqcut,0,!rlo,0,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+}
+macro beq_rlo_spherical(rlo,rlov,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+{
+	beq_rcut_rlo_spherical(!rcut,0,!beqcut,0,rlo,rlov,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)	
+}
+
+macro pairs_spherical(rlo,rlov,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+{
+	#m_argu rlo
+	#m_argu beqlo
+	#m_argu beqhi
+	#m_argu radius
+	If_Prm_Eqn_Rpt(rlo, rlov, min 0.1 max 100, del = 0.05 Val;)
+	If_Prm_Eqn_Rpt(beqlo, beqlov, min 0.001 max 10, del = 0.05 Val;)
+	If_Prm_Eqn_Rpt(beqhi, beqhiv, min 0.001 max 100, del = 0.05 Val;)
+	If_Prm_Eqn_Rpt(radius, radiusv, min 1 max 1000, del = 0.05 Val;) 
+	pdf_gauss_fwhm = 
 		IF X > (2 CeV(radius, radiusv)) + CeV(rlo, rlov) THEN
 			CeV(beqhi, beqhiv)
 		ELSE
@@ -117,28 +161,13 @@ macro beq_rcut_rlo_spherical(rcut,rcutv,beqcut,beqcutv,rlo,rlov,beqlo,beqlov,beq
 				CeV(beqlo, beqlov) + (CeV(beqhi, beqhiv)-CeV(beqlo, beqlov)) 
 					(1-(Pi (X-CeV(rlo, rlov))^2 ((0.25 ((X-CeV(rlo, rlov))/CeV(radius, radiusv))^3)-(3 (X-CeV(rlo, rlov))/CeV(radius, radiusv))+4)/(4 Pi (X-CeV(rlo, rlov))^2)))
 			ELSE
-				IF X > CeV(rcut, rcutv) THEN
-					CeV(beqlo, beqlov)
-				ELSE
-					CeV(beqcut, beqcutv)
-				ENDIF
+				CeV(beqlo, beqlov)
 			ENDIF
 		ENDIF;
 }
-
-macro beq_rcut_spherical(rcut,rcutv,beqcut,beqcutv,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
+macro pairs_spherical(rlo,rlov,beqlo,beqhi,radius,radiusv)
 {
-	beq_rcut_rlo_spherical(rcut,rcutv,beqcut,beqcutv,!rlo,0,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
-}
-
-macro beq_spherical(beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
-{
-	beq_rcut_rlo_spherical(!rcut,0,!beqcut,0,!rlo,0,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
-}
-
-macro beq_rlo_spherical(rlo,rlov,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)
-{
-	beq_rcut_rlo_spherical(!rcut,0,!beqcut,0,rlo,rlov,beqlo,beqlov,beqhi,beqhiv,radius,radiusv)	
+	pairs_spherical(rlo,rlov, ,beqlo, ,beqhi,radius,radiusv)
 }
 
 macro beq_r_r2(beqc,beqv,r,rv,r2,r2v)
@@ -160,8 +189,8 @@ macro beq_empirical(v1c,v1v,v2c,v2v,v3c,v3v,v4c,v4v)
 	#m_argu v4c
 	If_Prm_Eqn_Rpt(v1c, v1v, min 0.000001 max 10, del = 0.01 Val;)
 	If_Prm_Eqn_Rpt(v2c, v2v, min 0.000001 max 10, del = 0.01 Val;)
-	If_Prm_Eqn_Rpt(v3c, v3v, min 0.000001 max 10, del = 0.01 Val;)
-	If_Prm_Eqn_Rpt(v4c, v4v, min 0.000001 max 10, del = 0.01 Val;)
+	If_Prm_Eqn_Rpt(v3c, v3v, min -100.0   max 10, del = 0.01 Val;)
+	If_Prm_Eqn_Rpt(v4c, v4v, min -100.0   max 10, del = 0.01 Val;)
 	beq = CeV(v1c, v1v) + CeV(v2c, v2v) X + CeV(v3c, v3v) / X + CeV(v4c, v4v) / X^2;
 }
 
@@ -199,6 +228,7 @@ macro local_sphere(r,rv)
 {
 	spherical_damping(r,rv)
 }
+macro local_sphere(rv) { local_sphere( ,rv) }
 
 macro longrange_sphere(r,rv)
 {
@@ -211,6 +241,7 @@ macro longrange_sphere(r,rv)
 		If(X>0.01,1-((Pi X^2 ((0.25 (X/CeV(r,rv))^3)-(3 X/CeV(r,rv))+4)) / (4 Pi X^2 1)),0)
 	ENDIF;
 }
+macro longrange_sphere(rv) { longrange_sphere( ,rv) }
 
 '===PDF SCALING FUNCTIONS===
 macro pdf_D_dash_of_r_bkg(num_density,num_densityv)
@@ -255,7 +286,7 @@ macro pkshape_dQ_alpha(dQ,dQv,alpha,alphav,lor,lorv)
 	#m_argu alpha 	'Q dependent peak width term
 	#m_argu lor		'Lorch fraction
 	If_Prm_Eqn_Rpt(dQ, dQv, min 0.001 max 0.1, del 0.0001)
-	If_Prm_Eqn_Rpt(alpha, alphav, min 0.00001 max 0.01, del 0.001)
+	If_Prm_Eqn_Rpt(alpha, alphav, min 0.001 max 0.05, del 0.001)
 	If_Prm_Eqn_Rpt(lor, lorv, min 0 max 1)
 	peak_type pv
 		pv_lor = CeV(lor,lorv);		
@@ -312,5 +343,37 @@ macro pdf_gauss_fwhm_beqs(beq1, beq2)
 
 macro fwhm_beqs(beq1, beq2)
 {
-   2.3548 ((beq1 + beq2) / (8 Pi^2))^0.5
+   2.3548*((beq1/(8 Pi^2))^2 + (beq2(8 Pi^2))^2)^0.5
 }
+
+macro erf_fwhm(r,fwhm,fwhmv)
+'Defines a crossover (error) function from 0 to 1 centered at r=0, with an equivalent Gaussian width fhwm
+'NOTE: Erf_Approx is the error function for a sigma of ln(2). 1.632237 is ln(2)*2(2ln(2))^0.5 to convert this to fwhm.
+{
+	#m_argu r
+	#m_argu fwhm
+	If_Prm_Eqn_Rpt(fwhm, fwhmv,  min 0.01 max 100 del 0.001)
+	(Erf_Approx(r 1.632237/CeV(fwhm,fwhmv))+1)/2
+}
+macro erf_fwhm(r,fwhm) { erf_fwhm(r, ,fwhm) }
+
+'=======CHANGE LOG=======
+'===Updated 02/06/2017===
+'	beq_spherical_rmin_rcut added
+'	pkshape_dQ_alpha updated
+'	dQ_lor_damping added
+'===Updated 08/06/2017===
+'  beq_r_min updated to beq_rcut for consistency
+'  beq_spherical functions updated to refer to same master function
+'===Updated 13/06/2017===
+'  convolution functions fixed using convolute_X_recal = If(Xo,1,1) 1;
+'===Updated 14/06/2017===
+'  beq_rcut_rlo_spherical corrected for rlo != 0 and made more robust
+'===Updated 17/07/2019===
+'  single parameter macros for local_sphere and longrange_sphere added
+'===Updated 18/07/2019===
+'  beq_rcut_rlo_spherical updated to fix problem with beq_rcut_spherical
+'  min value for alpha changed to 0.0001 as smaller values causes TOPAS to run very slowly
+'===Updated 09/06/2022===
+'  convolute_alpha updated to use Max(CeV(alpha,alphav) Xo,0.00001) for use with TOPAS v7
+'  beq_rcut_rlo_spherical updated to use IF X > 0.1 THEN for use with TOPAS v7
