@@ -67,7 +67,7 @@ macro convolute_SoperLorch(d_zero,d_zerov,d_one,d_onev)
 {
 	'Covolution to account for the use of the Soper-Lorch function prior to Fourier transform of the S(Q)
 	'd_zero is the "Width of broadening in r space", as used in GudrunN
-	'Ref: A. K. Soper and E. R. Barney, J. Appl. Cryst. (2012). 45, 1314–1317
+	'Ref: A. K. Soper and E. R. Barney, J. Appl. Cryst. (2012). 45, 1314â€“1317
    #m_argu d_zero
    #m_argu d_one
    If_Prm_Eqn_Rpt(d_zero, d_zerov, min 0.001 max 1.0, del 0.01)
@@ -356,6 +356,31 @@ macro erf_fwhm(r,fwhm,fwhmv)
 	(Erf_Approx(r 1.632237/CeV(fwhm,fwhmv))+1)/2
 }
 macro erf_fwhm(r,fwhm) { erf_fwhm(r, ,fwhm) }
+
+macro shortrange_erf(r,rv,fwhm,fwhmv)
+'Defines a crossover (error) function phase scale from 1 to 0 centered at r, with an equivalent Gaussian width fhwm
+{
+	#m_argu r
+	#m_argu fwhm
+	If_Prm_Eqn_Rpt(r, rv,  min 1 max 100 del 0.01)
+	If_Prm_Eqn_Rpt(fwhm, fwhmv,  min 0.01 max 100 del 0.001)
+	scale_phase_X = (Erf_Approx((CeV(r,rv)-X) 1.632237/CeV(fwhm,fwhmv))+1)/2;
+}
+macro shortrange_erf(r,fwhm,fwhmv) { shortrange_erf( ,r,fwhm,fwhmv) }
+macro shortrange_erf(r,fwhm) { shortrange_erf( ,r, ,fwhm) }
+
+macro longrange_erf(r,rv,fwhm,fwhmv)
+'Defines a crossover (error) function phase scale from 0 to 1 centered at r, with an equivalent Gaussian width fhwm
+{
+	#m_argu r
+	#m_argu fwhm
+	If_Prm_Eqn_Rpt(r, rv,  min 1 max 100 del 0.01)
+	If_Prm_Eqn_Rpt(fwhm, fwhmv,  min 0.01 max 100 del 0.001)
+	scale_phase_X = 1-(Erf_Approx((CeV(r,rv)-X) 1.632237/CeV(fwhm,fwhmv))+1)/2;
+}
+macro longrange_erf(r,fwhm,fwhmv) { longrange_erf( ,r,fwhm,fwhmv) }
+macro longrange_erf(r,fwhm) { longrange_erf( ,r, ,fwhm) }
+
 
 '=======CHANGE LOG=======
 '===Updated 02/06/2017===
