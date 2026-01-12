@@ -381,6 +381,13 @@ macro longrange_erf(r,rv,fwhm,fwhmv)
 macro longrange_erf(r,fwhm,fwhmv) { longrange_erf( ,r,fwhm,fwhmv) }
 macro longrange_erf(r,fwhm) { longrange_erf( ,r, ,fwhm) }
 
+macro pdf_bkg_file(filename,c,v)
+{ 
+	#m_argu c If_Prm_Eqn_Rpt(c, v, min 0 max 10000)
+	user_y #m_unique bkg_obj filename
+	fit_obj = CeV(c, v) bkg_obj;
+}
+macro pdf_bkg_file(filename) { pdf_bkg_file(filename, ,1) }
 
 '=======CHANGE LOG=======
 '===Updated 02/06/2017===
@@ -402,3 +409,5 @@ macro longrange_erf(r,fwhm) { longrange_erf( ,r, ,fwhm) }
 '===Updated 09/06/2022===
 '  convolute_alpha updated to use Max(CeV(alpha,alphav) Xo,0.00001) for use with TOPAS v7
 '  beq_rcut_rlo_spherical updated to use IF X > 0.1 THEN for use with TOPAS v7
+'===Updated 12/01/2026===
+'  pdf_bkg_file added
